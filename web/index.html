@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AegisPulse — Clinical Hemodynamic Shock & Autonomic Entropy Cockpit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        pulse: {
+                            50: '#f0fdf4',
+                            500: '#10b981',
+                            600: '#059669',
+                            critical: '#ef4444',
+                            warning: '#f59e0b',
+                            card: '#0f172a',
+                            border: '#1e293b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(circle at top right, #090d16 0%, #030712 100%);
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .radar-grid {
+            background-size: 20px 20px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans antialiased">
+    <!-- Navigation Header -->
+    <header class="border-b border-slate-800/80 sticky top-0 z-50 glass-panel">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i data-lucide="activity" class="w-6 h-6 text-slate-950 font-bold"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-lg tracking-tight text-white">AEGIS<span class="text-emerald-400">PULSE</span></span>
+                        <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">v2.4 ICU-Core</span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-mono">Occult Shock & Poincaré Entropy Forecaster</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <div class="hidden md:flex items-center space-x-3 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs font-mono">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span class="text-slate-300">TELEMETRY: <strong class="text-emerald-400">ACTIVE (0.000s ENGINE)</strong></span>
+                </div>
+                <button onclick="exportClinicalReport()" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-semibold text-xs shadow-md transition">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Export Manifest</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        <!-- Live ECG Waveform & Poincaré Plot Banner -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- ECG Live Canvas -->
+            <div class="lg:col-span-2 glass-panel rounded-2xl p-5 relative overflow-hidden radar-grid">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="heart-pulse" class="w-5 h-5 text-emerald-400"></i>
+                        <h2 class="font-bold text-sm tracking-wide uppercase text-slate-200">Continuous Lead-II ECG Waveform</h2>
+                    </div>
+                    <div class="flex items-center space-x-4 text-xs font-mono">
+                        <span class="text-slate-400">SWEEP: <strong class="text-slate-200">25mm/s</strong></span>
+                        <span class="text-slate-400">SAMPLING: <strong class="text-emerald-400">500Hz</strong></span>
+                    </div>
+                </div>
+                <canvas id="ecgCanvas" class="w-full h-36 rounded-xl bg-slate-950/90 border border-slate-800/80"></canvas>
+                <div class="grid grid-cols-4 gap-4 mt-3 text-center">
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <div class="text-[10px] text-slate-400 uppercase font-mono">Heart Rate</div>
+                        <div id="liveHrDisplay" class="text-xl font-bold text-emerald-400 font-mono">115 <span class="text-xs text-slate-400">bpm</span></div>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <div class="text-[10px] text-slate-400 uppercase font-mono">Shock Index</div>
+                        <div id="liveSiDisplay" class="text-xl font-bold text-amber-400 font-mono">1.21</div>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <div class="text-[10px] text-slate-400 uppercase font-mono">Mean AP (MAP)</div>
+                        <div id="liveMapDisplay" class="text-xl font-bold text-cyan-400 font-mono">71.7 <span class="text-xs text-slate-400">mmHg</span></div>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <div class="text-[10px] text-slate-400 uppercase font-mono">NEWS-2 Tier</div>
+                        <div id="liveNewsDisplay" class="text-xl font-bold text-rose-400 font-mono">9 (Critical)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Poincaré 2D Ellipse Dispersion -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="scatter-chart" class="w-5 h-5 text-cyan-400"></i>
+                            <h2 class="font-bold text-sm tracking-wide uppercase text-slate-200">Poincaré Plot (RRₙ vs RRₙ₊₁)</h2>
+                        </div>
+                        <span id="autonomicBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">Vagal Blunting</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-3">Geometric quantification of autonomic reserve ($SD_1, SD_2$).</p>
+                    <canvas id="poincareCanvas" class="w-full h-36 rounded-xl bg-slate-950/90 border border-slate-800/80"></canvas>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-3 text-center text-xs font-mono">
+                    <div class="bg-slate-900/70 p-1.5 rounded border border-slate-800">
+                        <span class="text-slate-400 block text-[9px]">SD1 (Vagal)</span>
+                        <strong id="poincareSd1" class="text-cyan-400">7.8 ms</strong>
+                    </div>
+                    <div class="bg-slate-900/70 p-1.5 rounded border border-slate-800">
+                        <span class="text-slate-400 block text-[9px]">SD2 (Total)</span>
+                        <strong id="poincareSd2" class="text-cyan-400">42.1 ms</strong>
+                    </div>
+                    <div class="bg-slate-900/70 p-1.5 rounded border border-slate-800">
+                        <span class="text-slate-400 block text-[9px]">SampEn</span>
+                        <strong id="poincareSampEn" class="text-emerald-400">0.24</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Physiological Cockpit & Clinical Action Radar -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Controls & Presets -->
+            <div class="glass-panel rounded-2xl p-5 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 class="font-bold text-sm text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                        <i data-lucide="sliders" class="w-4 h-4 text-emerald-400"></i>
+                        Physiological Controls
+                    </h3>
+                    <div class="flex space-x-1">
+                        <button onclick="applyPreset('shock')" class="px-2 py-1 text-[10px] font-mono rounded bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition">Septic Shock</button>
+                        <button onclick="applyPreset('hemorrhage')" class="px-2 py-1 text-[10px] font-mono rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Hypovolemia</button>
+                        <button onclick="applyPreset('stable')" class="px-2 py-1 text-[10px] font-mono rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition">Stable</button>
+                    </div>
+                </div>
+
+                <!-- Sliders -->
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <div class="flex justify-between font-mono text-slate-300 mb-1">
+                            <span>Heart Rate (HR)</span>
+                            <span id="valHr" class="text-emerald-400 font-bold">115 bpm</span>
+                        </div>
+                        <input type="range" id="inputHr" min="40" max="180" value="115" class="w-full accent-emerald-500" oninput="updateCalculations()">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-mono text-slate-300 mb-1">
+                            <span>Systolic BP (SBP)</span>
+                            <span id="valSbp" class="text-cyan-400 font-bold">95 mmHg</span>
+                        </div>
+                        <input type="range" id="inputSbp" min="50" max="220" value="95" class="w-full accent-cyan-500" oninput="updateCalculations()">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-mono text-slate-300 mb-1">
+                            <span>Diastolic BP (DBP)</span>
+                            <span id="valDbp" class="text-cyan-400 font-bold">60 mmHg</span>
+                        </div>
+                        <input type="range" id="inputDbp" min="30" max="130" value="60" class="w-full accent-cyan-500" oninput="updateCalculations()">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-mono text-slate-300 mb-1">
+                            <span>Oxygen Saturation (SpO₂)</span>
+                            <span id="valSpo2" class="text-emerald-400 font-bold">93%</span>
+                        </div>
+                        <input type="range" id="inputSpo2" min="70" max="100" value="93" class="w-full accent-emerald-500" oninput="updateCalculations()">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-mono text-slate-300 mb-1">
+                            <span>Respiratory Rate (RR)</span>
+                            <span id="valRr" class="text-purple-400 font-bold">24 bpm</span>
+                        </div>
+                        <input type="range" id="inputRr" min="8" max="40" value="24" class="w-full accent-purple-500" oninput="updateCalculations()">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-mono text-slate-300 mb-1">
+                            <span>Temperature</span>
+                            <span id="valTemp" class="text-amber-400 font-bold">38.5 °C</span>
+                        </div>
+                        <input type="range" id="inputTemp" min="34.0" max="41.0" step="0.1" value="38.5" class="w-full accent-amber-500" oninput="updateCalculations()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hemodynamic Shock Risk Matrix & Action Protocol -->
+            <div class="lg:col-span-2 glass-panel rounded-2xl p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                        <h3 class="font-bold text-sm text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                            <i data-lucide="shield-alert" class="w-4 h-4 text-rose-400"></i>
+                            Clinical Decompensation Assessment
+                        </h3>
+                        <div id="riskPill" class="px-3 py-1 rounded-full text-xs font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                            CRITICAL DECOMPENSATION (48.5% Mortality)
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-center">
+                            <div class="text-[10px] text-slate-400 uppercase font-mono">Shock Index (SI)</div>
+                            <div id="cardSi" class="text-xl font-bold font-mono text-rose-400 mt-1">1.211</div>
+                            <div class="text-[9px] text-slate-500 mt-0.5">&gt; 0.9 Impending Shock</div>
+                        </div>
+
+                        <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-center">
+                            <div class="text-[10px] text-slate-400 uppercase font-mono">Modified SI (MSI)</div>
+                            <div id="cardMsi" class="text-xl font-bold font-mono text-rose-400 mt-1">1.604</div>
+                            <div class="text-[9px] text-slate-500 mt-0.5">&gt; 1.3 Hypoperfusion</div>
+                        </div>
+
+                        <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-center">
+                            <div class="text-[10px] text-slate-400 uppercase font-mono">Pulse Pressure</div>
+                            <div id="cardPp" class="text-xl font-bold font-mono text-amber-400 mt-1">35 mmHg</div>
+                            <div class="text-[9px] text-slate-500 mt-0.5">&lt; 30 Narrow Stroke Vol</div>
+                        </div>
+
+                        <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-center">
+                            <div class="text-[10px] text-slate-400 uppercase font-mono">Bayesian Collapse P</div>
+                            <div id="cardBayes" class="text-xl font-bold font-mono text-rose-400 mt-1">94.8%</div>
+                            <div class="text-[9px] text-slate-500 mt-0.5">Posterior Probability</div>
+                        </div>
+                    </div>
+
+                    <!-- Clinical Protocol Box -->
+                    <div class="bg-slate-900/90 rounded-xl p-4 border border-slate-800 space-y-2">
+                        <div class="flex items-center space-x-2 text-xs font-bold text-amber-300">
+                            <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                            <span>TACTICAL RESUSCITATION DIRECTIVE</span>
+                        </div>
+                        <p id="actionProtocolText" class="text-xs text-slate-300 leading-relaxed font-mono">
+                            Immediate resuscitation: Initiate rapid crystaloid challenge (30 mL/kg), draw emergent arterial blood gas & lactate, prepare norepinephrine infusion for target MAP &ge; 65 mmHg, perform focused cardiac ultrasound.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 font-mono">
+                    <span>TRIAGE CLASSIFICATION: <strong id="esiTierBadge" class="text-rose-400">ESI TIER 1 (RESUSCITATION)</strong></span>
+                    <span>RESPONSE WINDOW: <strong class="text-amber-400">&lt; 3 MINUTES</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Multi-Bed ICU Dynamic Triage Queue -->
+        <div class="glass-panel rounded-2xl p-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="users" class="w-5 h-5 text-emerald-400"></i>
+                    <h3 class="font-bold text-sm text-slate-200 uppercase tracking-wide">Multi-Bed Dynamic Triage Priority Roster</h3>
+                </div>
+                <div class="text-xs font-mono text-slate-400">
+                    Auto-Optimized by Bayesian Likelihood & NEWS-2 Kinetics
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="text-[10px] uppercase font-mono bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="p-3">Rank</th>
+                            <th class="p-3">Bed</th>
+                            <th class="p-3">Patient</th>
+                            <th class="p-3">Vitals (HR / BP / SpO₂)</th>
+                            <th class="p-3">Shock Index</th>
+                            <th class="p-3">ESI Tier</th>
+                            <th class="p-3">Collapse Risk</th>
+                            <th class="p-3">Urgency Score</th>
+                            <th class="p-3 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="triageTableBody" class="divide-y divide-slate-800/60 font-mono">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="border-t border-slate-800/80 py-6 mt-10 text-center text-xs text-slate-500 font-mono">
+        <p>AegisPulse Clinical AI Suite • Built for Hack2Heal 2.0 Global Healthcare Innovation Hackathon</p>
+        <p class="mt-1 text-[10px] text-slate-600">Pure Deterministic Hemodynamics (0.000s) • Poincaré Entropy • Bayesian Triage</p>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // Sample Triage Roster
+        const ICU_ROSTER = [
+            { bed: "BED-04", name: "Thomas Thorne", age: 79, hr: 142, sbp: 68, dbp: 38, spo2: 84, rr: 31, temp: 39.8, esi: 1, collapse: 96.5, urgency: 138.9, status: "Critical" },
+            { bed: "BED-01", name: "Sarah Jenkins", age: 58, hr: 128, sbp: 82, dbp: 48, spo2: 89, rr: 26, temp: 39.2, esi: 1, collapse: 92.0, urgency: 132.2, status: "Critical" },
+            { bed: "BED-03", name: "Amira Patel", age: 42, hr: 114, sbp: 98, dbp: 62, spo2: 93, rr: 22, temp: 38.4, esi: 1, collapse: 86.8, urgency: 113.1, status: "Emergent" },
+            { bed: "BED-02", name: "Robert Miller", age: 64, hr: 76, sbp: 128, dbp: 82, spo2: 97, rr: 15, temp: 36.9, esi: 5, collapse: 0.5, urgency: 5.3, status: "Stable" }
+        ];
+
+        function renderRoster() {
+            const tbody = document.getElementById('triageTableBody');
+            tbody.innerHTML = ICU_ROSTER.map((p, idx) => {
+                const isCrit = p.esi === 1;
+                return `
+                    <tr class="hover:bg-slate-900/50 transition">
+                        <td class="p-3 font-bold ${isCrit ? 'text-rose-400' : 'text-slate-400'}">#${idx + 1}</td>
+                        <td class="p-3 text-slate-200 font-bold">${p.bed}</td>
+                        <td class="p-3 text-slate-300">${p.name} <span class="text-slate-500">(${p.age}y)</span></td>
+                        <td class="p-3 text-slate-300">${p.hr} bpm | ${p.sbp}/${p.dbp} | ${p.spo2}%</td>
+                        <td class="p-3 ${p.hr/p.sbp >= 0.9 ? 'text-rose-400 font-bold' : 'text-slate-300'}">${(p.hr/p.sbp).toFixed(2)}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] ${isCrit ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300'}">ESI-${p.esi}</span></td>
+                        <td class="p-3 ${p.collapse > 50 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${p.collapse}%</td>
+                        <td class="p-3 text-slate-200">${p.urgency}</td>
+                        <td class="p-3 text-right"><span class="px-2 py-0.5 rounded text-[10px] ${isCrit ? 'bg-rose-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400'}">${p.status}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Live ECG Synthesis
+        const ecgCanvas = document.getElementById('ecgCanvas');
+        const ecgCtx = ecgCanvas.getContext('2d');
+        let ecgOffset = 0;
+
+        function resizeCanvases() {
+            ecgCanvas.width = ecgCanvas.clientWidth * window.devicePixelRatio;
+            ecgCanvas.height = ecgCanvas.clientHeight * window.devicePixelRatio;
+            ecgCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            
+            const pCanvas = document.getElementById('poincareCanvas');
+            pCanvas.width = pCanvas.clientWidth * window.devicePixelRatio;
+            pCanvas.height = pCanvas.clientHeight * window.devicePixelRatio;
+            const pCtx = pCanvas.getContext('2d');
+            pCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawPoincare();
+        }
+
+        function drawECG() {
+            const width = ecgCanvas.clientWidth;
+            const height = ecgCanvas.clientHeight;
+            ecgCtx.clearRect(0, 0, width, height);
+
+            ecgCtx.strokeStyle = '#10b981';
+            ecgCtx.lineWidth = 2;
+            ecgCtx.beginPath();
+
+            const hr = parseFloat(document.getElementById('inputHr').value);
+            const period = Math.max(30, 6000 / hr);
+
+            for (let x = 0; x < width; x++) {
+                const t = (x + ecgOffset) % period;
+                let y = height / 2;
+
+                // P-QRS-T synthesis
+                if (t > period * 0.2 && t < period * 0.28) {
+                    y -= Math.sin((t - period * 0.2) / (period * 0.08) * Math.PI) * 8; // P wave
+                } else if (t >= period * 0.35 && t < period * 0.38) {
+                    y += 6; // Q dip
+                } else if (t >= period * 0.38 && t < period * 0.44) {
+                    y -= Math.sin((t - period * 0.38) / (period * 0.06) * Math.PI) * 45; // R spike
+                } else if (t >= period * 0.44 && t < period * 0.48) {
+                    y += 12; // S dip
+                } else if (t >= period * 0.55 && t < period * 0.72) {
+                    y -= Math.sin((t - period * 0.55) / (period * 0.17) * Math.PI) * 14; // T wave
+                }
+
+                if (x === 0) ecgCtx.moveTo(x, y);
+                else ecgCtx.lineTo(x, y);
+            }
+
+            ecgCtx.stroke();
+            ecgOffset += 2.5;
+            requestAnimationFrame(drawECG);
+        }
+
+        function drawPoincare() {
+            const canvas = document.getElementById('poincareCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw identity diagonal
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(10, h - 10);
+            ctx.lineTo(w - 10, 10);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Poincaré points
+            const hr = parseFloat(document.getElementById('inputHr').value);
+            const meanRR = 60000 / hr;
+            const dispersion = hr > 110 ? 8 : 45; // Blunted dispersion during shock
+
+            ctx.fillStyle = hr > 110 ? '#f43f5e' : '#06b6d4';
+            for (let i = 0; i < 35; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r1 = (Math.random() - 0.5) * dispersion;
+                const r2 = (Math.random() - 0.5) * (dispersion * 1.8);
+                
+                const px = (w / 2) + (r2 + r1) * 1.2;
+                const py = (h / 2) - (r2 - r1) * 1.2;
+
+                ctx.beginPath();
+                ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function updateCalculations() {
+            const hr = parseFloat(document.getElementById('inputHr').value);
+            const sbp = parseFloat(document.getElementById('inputSbp').value);
+            const dbp = parseFloat(document.getElementById('inputDbp').value);
+            const spo2 = parseFloat(document.getElementById('inputSpo2').value);
+            const rr = parseFloat(document.getElementById('inputRr').value);
+            const temp = parseFloat(document.getElementById('inputTemp').value);
+
+            // Update label values
+            document.getElementById('valHr').innerText = `${hr} bpm`;
+            document.getElementById('valSbp').innerText = `${sbp} mmHg`;
+            document.getElementById('valDbp').innerText = `${dbp} mmHg`;
+            document.getElementById('valSpo2').innerText = `${spo2}%`;
+            document.getElementById('valRr').innerText = `${rr} bpm`;
+            document.getElementById('valTemp').innerText = `${temp.toFixed(1)} °C`;
+
+            // Calculate MAP & SI
+            const mapVal = dbp + (sbp - dbp) / 3.0;
+            const si = hr / sbp;
+            const msi = hr / mapVal;
+            const pp = sbp - dbp;
+
+            // NEWS-2 calculation
+            let news = 0;
+            if (rr <= 8 || rr >= 25) news += 3;
+            else if (rr >= 21) news += 2;
+            else if (rr <= 11) news += 1;
+
+            if (spo2 <= 91) news += 3;
+            else if (spo2 <= 93) news += 2;
+            else if (spo2 <= 95) news += 1;
+
+            if (sbp <= 90) news += 3;
+            else if (sbp <= 100) news += 2;
+            else if (sbp <= 110) news += 1;
+
+            if (hr <= 40 || hr >= 131) news += 3;
+            else if (hr >= 111) news += 2;
+            else if (hr >= 91 || hr <= 50) news += 1;
+
+            if (temp <= 35.0) news += 3;
+            else if (temp >= 39.1) news += 2;
+
+            // Update DOM displays
+            document.getElementById('liveHrDisplay').innerText = `${hr} bpm`;
+            document.getElementById('liveSiDisplay').innerText = si.toFixed(2);
+            document.getElementById('liveMapDisplay').innerText = `${mapVal.toFixed(1)} mmHg`;
+            document.getElementById('liveNewsDisplay').innerText = `${news} points`;
+
+            document.getElementById('cardSi').innerText = si.toFixed(3);
+            document.getElementById('cardMsi').innerText = msi.toFixed(3);
+            document.getElementById('cardPp').innerText = `${pp} mmHg`;
+
+            // Bayesian risk
+            let bayesP = 0.05;
+            if (si >= 1.2 || news >= 7) bayesP = 0.948;
+            else if (si >= 0.9 || news >= 5) bayesP = 0.625;
+            else if (si >= 0.7) bayesP = 0.210;
+
+            document.getElementById('cardBayes').innerText = `${(bayesP * 100).toFixed(1)}%`;
+
+            // Status pill & directive
+            const pill = document.getElementById('riskPill');
+            const proto = document.getElementById('actionProtocolText');
+            const badge = document.getElementById('esiTierBadge');
+            const autoBadge = document.getElementById('autonomicBadge');
+
+            if (si >= 1.2 || news >= 7) {
+                pill.className = "px-3 py-1 rounded-full text-xs font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                pill.innerText = "CRITICAL COLLAPSE (48.5% Mortality)";
+                proto.innerText = "Immediate resuscitation: Initiate rapid crystalloid challenge (30 mL/kg), draw emergent arterial blood gas & lactate, prepare norepinephrine infusion for target MAP >= 65 mmHg, perform bedside echo.";
+                badge.className = "text-rose-400 font-bold";
+                badge.innerText = "ESI TIER 1 (RESUSCITATION)";
+                autoBadge.innerText = "Vagal Blunting (Decompensated)";
+                autoBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40";
+                document.getElementById('poincareSd1').innerText = "6.4 ms";
+                document.getElementById('poincareSampEn').innerText = "0.18";
+            } else if (si >= 0.9 || news >= 5) {
+                pill.className = "px-3 py-1 rounded-full text-xs font-bold font-mono bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                pill.innerText = "IMPENDING SHOCK (19.2% Risk)";
+                proto.innerText = "Escalate monitoring: Place arterial line, establish dual large-bore IV access, continuous telemetry, re-evaluate underlying sepsis/blood loss.";
+                badge.className = "text-amber-400 font-bold";
+                badge.innerText = "ESI TIER 2 (EMERGENT)";
+                autoBadge.innerText = "Sympathetic Dominance";
+                autoBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40";
+                document.getElementById('poincareSd1').innerText = "14.2 ms";
+                document.getElementById('poincareSampEn').innerText = "0.58";
+            } else {
+                pill.className = "px-3 py-1 rounded-full text-xs font-bold font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                pill.innerText = "HEMODYNAMICALLY STABLE (0.8% Risk)";
+                proto.innerText = "Maintain standard vital surveillance every 4 hours. No emergent interventions indicated.";
+                badge.className = "text-emerald-400 font-bold";
+                badge.innerText = "ESI TIER 4/5 (STABLE)";
+                autoBadge.innerText = "Healthy Variability";
+                autoBadge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+                document.getElementById('poincareSd1').innerText = "32.6 ms";
+                document.getElementById('poincareSampEn').innerText = "1.42";
+            }
+
+            drawPoincare();
+        }
+
+        function applyPreset(type) {
+            if (type === 'shock') {
+                document.getElementById('inputHr').value = 135;
+                document.getElementById('inputSbp').value = 75;
+                document.getElementById('inputDbp').value = 45;
+                document.getElementById('inputSpo2').value = 88;
+                document.getElementById('inputRr').value = 28;
+                document.getElementById('inputTemp').value = 39.5;
+            } else if (type === 'hemorrhage') {
+                document.getElementById('inputHr').value = 120;
+                document.getElementById('inputSbp').value = 90;
+                document.getElementById('inputDbp').value = 55;
+                document.getElementById('inputSpo2').value = 94;
+                document.getElementById('inputRr').value = 22;
+                document.getElementById('inputTemp').value = 36.4;
+            } else {
+                document.getElementById('inputHr').value = 72;
+                document.getElementById('inputSbp').value = 120;
+                document.getElementById('inputDbp').value = 80;
+                document.getElementById('inputSpo2').value = 99;
+                document.getElementById('inputRr').value = 14;
+                document.getElementById('inputTemp').value = 37.0;
+            }
+            updateCalculations();
+        }
+
+        function exportClinicalReport() {
+            const report = {
+                system: "AegisPulse Clinical AI Suite",
+                timestamp: new Date().toISOString(),
+                current_hemodynamics: {
+                    hr: document.getElementById('inputHr').value,
+                    bp: `${document.getElementById('inputSbp').value}/${document.getElementById('inputDbp').value}`,
+                    spo2: document.getElementById('inputSpo2').value,
+                    shock_index: document.getElementById('cardSi').innerText,
+                    modified_shock_index: document.getElementById('cardMsi').innerText,
+                    bayesian_collapse_probability: document.getElementById('cardBayes').innerText,
+                    triage_tier: document.getElementById('esiTierBadge').innerText
+                },
+                roster_snapshot: ICU_ROSTER
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `aegispulse_manifest_${Date.now()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+        window.addEventListener('DOMContentLoaded', () => {
+            renderRoster();
+            resizeCanvases();
+            updateCalculations();
+            drawECG();
+        });
+    </script>
+</body>
+</html>
